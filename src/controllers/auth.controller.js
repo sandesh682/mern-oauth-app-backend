@@ -23,8 +23,8 @@ exports.googleCallback = async (req, res) => {
   res.cookie("accessToken", accessToken, cookieOptions);
   res.cookie("refreshToken", refreshToken, cookieOptions);
 
-  res.json({ user: user });
-  // res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+  // res.json({ user: user });
+  res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
 };
 
 exports.logout = async (req, res) => {
