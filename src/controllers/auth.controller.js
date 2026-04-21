@@ -147,7 +147,25 @@ exports.refreshTokenHandler = async (req, res) => {
 };
 
 exports.getMe = async (req, res) => {
-  res.json({
-    user: req.user,
-  });
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId).select("email name providers");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 🔥 Format response for frontend
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        providers: user.providers.map((p) => p.type),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch user" });
+  }
 };

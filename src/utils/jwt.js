@@ -5,7 +5,7 @@ exports.generateAccessToken = (user) => {
     { userId: user._id, type: "access", tokenVersion: user.tokenVersion },
     process.env.JWT_SECRET,
     {
-      expiresIn: "15m",
+      expiresIn: "1m",
       issuer: "mern-oauth-app",
       audience: "mern-users",
     },
