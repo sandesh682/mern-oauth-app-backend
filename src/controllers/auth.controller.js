@@ -1,4 +1,5 @@
 const User = require("../models/user.model");
+const redis = require("../config/redis");
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
 const jwt = require("jsonwebtoken");
 
@@ -29,8 +30,6 @@ exports.googleCallback = async (req, res) => {
 exports.logout = async (req, res) => {
   const token = req.cookies.refreshToken;
 
-  let userId = null;
-
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
@@ -39,15 +38,11 @@ exports.logout = async (req, res) => {
         return res.status(403).json({ message: "Invalid token type" });
       }
 
-      userId = decoded.userId;
-
-      const user = await User.findById(userId);
+      const user = await User.findById(decoded.userId);
 
       if (user && user.refreshTokens.includes(token)) {
+        // ✅ remove only this session
         user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
-
-        // 🔥 ADD THIS LINE (revokes ALL access tokens)
-        user.tokenVersion += 1;
 
         await user.save();
       }
@@ -64,7 +59,34 @@ exports.logout = async (req, res) => {
   res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
 
-  res.json({ message: "Logged out" });
+  res.json({ message: "Logged out (current device)" });
+};
+
+exports.forceLogoutAll = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId);
+
+    // 🔥 increment version → invalidates all access tokens
+    user.tokenVersion += 1;
+
+    // 🔥 remove all refresh tokens
+    user.refreshTokens = [];
+
+    await user.save();
+
+    // 🔥 update Redis
+    const redisKey = `user:${userId}:tokenVersion`;
+    await redis.set(redisKey, user.tokenVersion);
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.json({ message: "Logged out from all devices" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to logout all devices" });
+  }
 };
 
 exports.refreshTokenHandler = async (req, res) => {

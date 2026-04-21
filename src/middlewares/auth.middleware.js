@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
+const redis = require("../config/redis");
 
 exports.verifyJWT = async (req, res, next) => {
   const token = req.cookies.accessToken;
@@ -15,14 +16,25 @@ exports.verifyJWT = async (req, res, next) => {
       return res.status(403).json({ message: "Invalid token type" });
     }
 
-    // 🔥 NEW: token version check
-    const user = await User.findById(decoded.userId).select("tokenVersion");
+    const redisKey = `user:${decoded.userId}:tokenVersion`;
 
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
+    let tokenVersion = await redis.get(redisKey);
+
+    // 🔥 CACHE MISS → fallback to DB
+    if (tokenVersion === null) {
+      const user = await User.findById(decoded.userId).select("tokenVersion");
+
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      tokenVersion = user.tokenVersion;
+
+      // 🔥 Warm Redis cache (optional TTL)
+      await redis.set(redisKey, tokenVersion, "EX", 3600); // 1 hour
     }
 
-    if (user.tokenVersion !== decoded.tokenVersion) {
+    if (Number(tokenVersion) !== decoded.tokenVersion) {
       return res.status(401).json({ message: "Token invalidated" });
     }
 

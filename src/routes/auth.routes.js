@@ -6,6 +6,7 @@ const {
   getMe,
   refreshTokenHandler,
   logout,
+  forceLogoutAll,
 } = require("../controllers/auth.controller");
 
 const { verifyJWT } = require("../middlewares/auth.middleware");
@@ -51,6 +52,7 @@ router.get(
 // Auth utilities
 router.post("/refresh", refreshTokenHandler);
 router.post("/logout", verifyJWT, logout);
+router.post("/forceLogoutAll", verifyJWT, forceLogoutAll);
 
 // Protected
 router.get("/me", verifyJWT, getMe);
