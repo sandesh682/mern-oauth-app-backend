@@ -1,38 +1,63 @@
 const express = require("express");
 const passport = require("passport");
-const { googleCallback } = require("../controllers/auth.controller");
+
+const {
+  googleCallback,
+  getMe,
+  refreshTokenHandler,
+  logout,
+} = require("../controllers/auth.controller");
 
 const { verifyJWT } = require("../middlewares/auth.middleware");
-const { getMe } = require("../controllers/auth.controller");
 
 const router = express.Router();
 
-// Step 1: Redirect to Google
+// Google
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] }),
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    state: true,
+  }),
 );
 
-// Step 2: Callback
 router.get(
   "/google/callback",
-  passport.authenticate("google", { session: false }),
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
+  }),
   googleCallback,
 );
 
-// GitHub login
+// GitHub
 router.get(
   "/github",
-  passport.authenticate("github", { scope: ["user:email"] }),
+  passport.authenticate("github", {
+    scope: ["user:email"],
+    state: true,
+  }),
 );
 
-// GitHub callback
 router.get(
   "/github/callback",
-  passport.authenticate("github", { session: false }),
-  googleCallback, // reuse same controller
+  passport.authenticate("github", {
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
+  }),
+  googleCallback,
 );
 
+// Auth utilities
+router.post("/refresh", refreshTokenHandler);
+router.post("/logout", verifyJWT, logout);
+
+// Protected
 router.get("/me", verifyJWT, getMe);
+
+// Health check
+router.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
 module.exports = router;
